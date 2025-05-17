@@ -99,6 +99,12 @@ def create_subnet(vpc_id, cidr_block, subnet_name, availability_zone, is_public,
         # Extract the Subnet ID
         subnet_id = response['Subnet']['SubnetId']
         print(f"[✅] Successfully created {'Public' if is_public else 'Private'} Subnet with ID: {subnet_id}")
+        if is_public:
+            ec2.modify_subnet_attribute(
+                SubnetId=subnet_id,
+                MapPublicIpOnLaunch={'Value': True}
+            )
+            print(f"[✅] Auto-assign public IP enabled for Subnet ID: {subnet_id}")
         return subnet_id
 
     except NoCredentialsError:
