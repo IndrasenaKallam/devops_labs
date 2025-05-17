@@ -457,5 +457,4 @@ if __name__ == "__main__":
 
     ec2.create_route(RouteTableId=default_route_table_id,DestinationCidrBlock="0.0.0.0/0",GatewayId=internet_gateway_id)
     print(f"[✅] Internet Gateway {internet_gateway_id} attached to Public Route Table {default_route_table_id}")
-
     create_nat_gateway_and_update_routes(vpc_id=vpc_id, private_rtb_name="private_rtb", public_subnet_id=get_subnet_by_name(ec2, "public_subnet_us-east-1a"), region=region_name)
