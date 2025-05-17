@@ -343,6 +343,7 @@ def associate_private_subnets_to_route_table(vpc_id, route_table_name, region='u
 def create_nat_gateway_and_update_routes(vpc_id, private_rtb_name, public_subnet_id, region='us-east-1'):
     """
     Create a NAT Gateway and update the routes in the private route table.
+    If a NAT Gateway already exists in the VPC, reuse it.
 
     :param vpc_id: The ID of the VPC.
     :param private_rtb_name: The name of the private route table.
@@ -352,26 +353,40 @@ def create_nat_gateway_and_update_routes(vpc_id, private_rtb_name, public_subnet
     try:
         ec2 = boto3.client('ec2', region_name=region)
 
-        # Step 1: Allocate an Elastic IP for the NAT Gateway
-        eip_response = ec2.allocate_address(Domain='vpc')
-        allocation_id = eip_response['AllocationId']
-        print(f"[✅] Allocated Elastic IP with Allocation ID: {allocation_id}")
-
-        # Step 2: Create the NAT Gateway in the public subnet
-        nat_gateway_response = ec2.create_nat_gateway(
-            SubnetId=public_subnet_id,
-            AllocationId=allocation_id
+        # Step 1: Check if a NAT Gateway already exists in the VPC
+        print("[ℹ️] Checking for existing NAT Gateways in the VPC...")
+        nat_gateways_response = ec2.describe_nat_gateways(
+            Filters=[
+                {'Name': 'vpc-id', 'Values': [vpc_id]},
+                {'Name': 'state', 'Values': ['available', 'pending']}
+            ]
         )
-        nat_gateway_id = nat_gateway_response['NatGateway']['NatGatewayId']
-        print(f"[✅] Created NAT Gateway with ID: {nat_gateway_id}")
+        existing_nat_gateways = nat_gateways_response.get('NatGateways', [])
 
-        # Wait for the NAT Gateway to become available
-        waiter = ec2.get_waiter('nat_gateway_available')
-        print("[ℹ️] Waiting for the NAT Gateway to become available...")
-        waiter.wait(NatGatewayIds=[nat_gateway_id])
-        print(f"[✅] NAT Gateway {nat_gateway_id} is now available.")
+        if existing_nat_gateways:
+            nat_gateway_id = existing_nat_gateways[0]['NatGatewayId']
+            print(f"[✅] Found existing NAT Gateway with ID: {nat_gateway_id}")
+        else:
+            # Step 2: Allocate an Elastic IP for the NAT Gateway
+            eip_response = ec2.allocate_address(Domain='vpc')
+            allocation_id = eip_response['AllocationId']
+            print(f"[✅] Allocated Elastic IP with Allocation ID: {allocation_id}")
 
-        # Step 3: Get the Route Table ID for the private route table
+            # Step 3: Create the NAT Gateway in the public subnet
+            nat_gateway_response = ec2.create_nat_gateway(
+                SubnetId=public_subnet_id,
+                AllocationId=allocation_id
+            )
+            nat_gateway_id = nat_gateway_response['NatGateway']['NatGatewayId']
+            print(f"[✅] Created NAT Gateway with ID: {nat_gateway_id}")
+
+            # Wait for the NAT Gateway to become available
+            waiter = ec2.get_waiter('nat_gateway_available')
+            print("[ℹ️] Waiting for the NAT Gateway to become available...")
+            waiter.wait(NatGatewayIds=[nat_gateway_id])
+            print(f"[✅] NAT Gateway {nat_gateway_id} is now available.")
+
+        # Step 4: Get the Route Table ID for the private route table
         route_table_response = ec2.describe_route_tables(
             Filters=[
                 {'Name': 'vpc-id', 'Values': [vpc_id]},
@@ -385,7 +400,7 @@ def create_nat_gateway_and_update_routes(vpc_id, private_rtb_name, public_subnet
         private_rtb_id = route_table_response['RouteTables'][0]['RouteTableId']
         print(f"[✅] Found Private Route Table '{private_rtb_name}' with ID: {private_rtb_id}")
 
-        # Step 4: Update the private route table to route traffic through the NAT Gateway
+        # Step 5: Update the private route table to route traffic through the NAT Gateway
         ec2.create_route(
             RouteTableId=private_rtb_id,
             DestinationCidrBlock='0.0.0.0/0',

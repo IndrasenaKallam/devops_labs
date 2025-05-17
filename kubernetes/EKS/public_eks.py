@@ -1,6 +1,6 @@
 import boto3
 from create_vpc_private_public_subnets import get_subnet_by_name
-from functions import get_account_number
+from functions.helper import get_account_number
 from functions import create_eks_cluster
 from functions import create_iam_role
 from create_vpc_private_public_subnets import get_subnet_by_name

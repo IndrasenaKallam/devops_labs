@@ -34,7 +34,7 @@ def create_eks_cluster(cluster_name, role_arn, subnet_ids, public_access_cidrs, 
         print(f"Waiting for cluster '{cluster_name}' to become active...")
         waiter = eks_client.get_waiter('cluster_active')
         waiter.wait(
-            clusterName=cluster_name,
+            name=cluster_name,
             WaiterConfig={
                 'Delay': 30,  # Wait 30 seconds between checks
                 'MaxAttempts': 40  # Maximum number of attempts (40 * 30 = 20 minutes)
