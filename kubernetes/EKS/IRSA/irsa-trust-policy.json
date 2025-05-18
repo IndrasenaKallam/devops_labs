@@ -1,0 +1,18 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+        "Effect": "Allow",
+        "Principal": {
+            "Federated": "arn:aws:iam::231144931069:oidc-provider/$oidc_provider"
+        },
+        "Action": "sts:AssumeRoleWithWebIdentity",
+        "Condition": {
+            "StringEquals": {
+            "oidc.eks.eu-west-2.amazonaws.com/id/41C415204248C3A34377D6A4D103A9C8:aud": "sts.amazonaws.com",
+            "oidc.eks.eu-west-2.amazonaws.com/id/41C415204248C3A34377D6A4D103A9C8:sub": "system:serviceaccount:$namespace:$service_account"
+            }
+        }
+        }
+    ]
+}

@@ -1,10 +1,10 @@
 import boto3
 from create_vpc_private_public_subnets import get_subnet_by_name
 from functions.helper import get_account_number
-from functions import create_eks_cluster
-from functions import create_iam_role
+from functions.create_control_plane import create_eks_cluster
+from functions.create_role_with_policies import create_iam_role
 from create_vpc_private_public_subnets import get_subnet_by_name
-from functions import create_eks_nodegroup
+from functions.create_nodegroup import create_eks_nodegroup
 
 control_plane_trust_policy = {
         "Version": "2012-10-17",
@@ -61,23 +61,30 @@ kubernetes_version = "1.28"
 tags = {"owner": "ikallam", "environment": "development", "Name": f"{cluster_name}"}
 
     
-nodegroup_name = "system-managed-workers-001"
+system_nodegroup_name = "system-managed-workers-001"
+application_nodegroup_name = "application-managed-workers-001"
 scaling_config = { "minSize": 2, "maxSize": 5, "desiredSize": 2}
 instance_types = ["t3.medium"]
 ami_type = "AL2_x86_64"
 capacity_type = "ON_DEMAND"
 update_config = {"maxUnavailable": 1}
 
-taints = [
+system_taints = [
     {"key": "CriticalAddonsOnly", "value": "true", "effect": "NO_SCHEDULE"},
     {"key": "CriticalAddonsOnly", "value": "true", "effect": "NO_EXECUTE"}
 ]
-labels = {
+
+application_taints = []
+system_labels = {
     "node.kubernetes.io/scope": "system"
+}
+application_labels = {
+    "node.kubernetes.io/scope": "application"
 }
 
 # create roles and attach policies
 create_iam_role(control_plane_role_name, control_plane_trust_policy, control_plane_policies, control_plane_tags)
 create_iam_role(worker_nodes_role_name, worker_nodes_trust_policy, worker_nodes_policies, worker_node_role_tags)
 create_eks_cluster(cluster_name, role_arn, subnet_ids, public_access_cidrs, service_ipv4_cidr, kubernetes_version, tags)
-create_eks_nodegroup(cluster_name, nodegroup_name, scaling_config, subnet_ids, node_role, instance_types, ami_type, capacity_type, update_config, taints, labels, tags)
+create_eks_nodegroup(cluster_name, system_nodegroup_name, scaling_config, subnet_ids, node_role, instance_types, ami_type, capacity_type, update_config, system_taints, system_labels, tags)
+create_eks_nodegroup(cluster_name, application_nodegroup_name, scaling_config, subnet_ids, node_role, instance_types, ami_type, capacity_type, update_config, application_taints, application_labels, tags)
