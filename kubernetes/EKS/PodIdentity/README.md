@@ -1,6 +1,18 @@
 ![Alt text](image.png)
 
 ```
+# create an addon
+
+aws eks create-addon \
+  --cluster-name ikallam-public-cluster \
+  --addon-name eks-pod-identity-agent \
+  --addon-version v1.1.0-eksbuild.1 \
+  --configuration-values file://tolerate-all-taints.json \
+  --tags owner=ikallam
+
+```
+
+```
 [root@ip-172-31-89-28 ~]# k get ds eks-pod-identity-agent -n kube-system
 NAME                     DESIRED   CURRENT   READY   UP-TO-DATE   AVAILABLE   NODE SELECTOR   AGE
 eks-pod-identity-agent   4         4         4       4            4           <none>          4m58s
@@ -22,7 +34,7 @@ aws iam attach-role-policy \
 Create pod Identity association
 
 k create ns pod-identity-testns
-k create sa pod-identity-sa -n pod-identity-test
+k create sa pod-identity-sa -n pod-identity-testns
 
 ```
 [root@ip-172-31-89-28 ~]# k get sa -n pod-identity-testns
@@ -30,31 +42,36 @@ NAME              SECRETS   AGE
 default           0         12m
 pod-identity-sa   0         9s
 ```
-
+export account_number=$(aws sts get-caller-identity --query "Account" --output text)
 aws eks create-pod-identity-association \
 --cluster-name ikallam-public-cluster \
 --namespace pod-identity-testns \
 --service-account pod-identity-sa \
---role-arn arn:aws:iam::471112902367:role/ikallam-pod-identity-test-role
+--role-arn arn:aws:iam::${account_number}:role/ikallam-pod-identity-test-role
 
-allocation-id=a-aucdjy2aknga0ngux
+allocation-id=a-mbt5sahfesjyrrtrl
 
-aws eks describe-pod-identity-association \
+
+aws eks list-pod-identity-associations \
   --cluster-name ikallam-public-cluster \
   --namespace pod-identity-testns \
   --service-account pod-identity-sa
 
+aws eks describe-pod-identity-association \
+--cluster-name ikallam-public-cluster \
+--association-id a-mbt5sahfesjyrrtrl
+
 aws eks update-pod-identity-association \
   --cluster-name ikallam-public-cluster \
-  --association-id a-aucdjy2aknga0ngux \
+  --association-id a-mbt5sahfesjyrrtrl \
   --role-arn arn:aws:iam::471112902367:role/ikallam-pod-identity-test-role
 
 
 ```
 aws eks update-pod-identity-association \
   --cluster-name ikallam-public-cluster \
-  --association-id a-aucdjy2aknga0ngux \
-  --role-arn arn:aws:iam::471112902367:role/ikallam-pod-identity-test-role
+  --association-id a-mbt5sahfesjyrrtrl \
+  --role-arn arn:aws:iam::${account_number}:role/ikallam-pod-identity-test-role
 {
     "association": {
         "clusterName": "ikallam-public-cluster",
@@ -94,7 +111,7 @@ spec:
 EOF
 
 k exec -it pod-identity-testing-pod -n pod-identity-testns -- bash
-
+kubectl exec -it pod-identity-testing-pod -n pod-identity-testns -- aws ec2 describe-instances
 
 bash-4.2# aws ec2 describe-instances   --query "Reservations[*].Instances[*].InstanceId"   --output text
 i-0fc5c65e5e3ff5f5a
